@@ -2,15 +2,13 @@ import { Mistral } from "@mistralai/mistralai";
 import {RecursiveCharacterTextSplitter} from '@langchain/textsplitters';
 import fs from "node:fs";
 import path from "node:path";
-
 import dotenv from 'dotenv';
 dotenv.config({ path: `.env.${process.env.NODE_ENV}` });
 
 
-let chuck = [];
-
+const dir = path.join('/home/devp-sriram/scrimba/mistral-ai/rag/','data.txt') 
 const mistral = new Mistral({
-  apiKey: 'mCj9duyV6zjiwOHvw5WrBzgWorIZqXNj',
+  apiKey: '',
 });
 async function run() {
   const result = await mistral.chat.complete({
@@ -28,13 +26,12 @@ async function run() {
   console.log(result);
 }
 
-async function splitDoc(){
-  const dir = path.join('/home/devp-sriram/scrimba/mistral-ai/rag/','data.txt') 
+async function splitDoc(dir){
   const data = fs.readFileSync(dir, 'utf8');
 
   const spliter = new RecursiveCharacterTextSplitter({
-    chunkSize :250,
-    chunkOverlap : 40,
+    chunkSize :150,
+    chunkOverlap : 30,
   })
 
     const output = await spliter.createDocuments([data]);
@@ -42,7 +39,7 @@ async function splitDoc(){
     return textArr;
 }
 
-
+{/*
 const exampleChunk = ['hour days.  Ordinarily, work hours are from 9:00 a.m. ‐ 5:00 p.m., Monday through Friday,\n' +
     'including one hour (unpaid) for lunch.  Employees may request the opportunity to vary their'];
 // console.log(await splitDoc());
@@ -54,4 +51,19 @@ const result = await mistral.embeddings.create({
   });
 
 const embedCode = result.data[0]
-console.log(embedCode);
+console.log(embedCode); */}
+
+async function createEmberddings(dir){
+  const contentArr = splitDoc(dir);
+  contentArr.map(async (content) => {
+    return [{
+      content : content,
+      embedding : await mistral.embeddings.create({
+        inputs : [content],
+        model : 'mistral-embed',
+      })
+    }]
+  });
+}
+
+console.table(createEmberddings(dir))
