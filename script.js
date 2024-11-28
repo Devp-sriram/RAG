@@ -1,88 +1,47 @@
 import { Mistral } from "@mistralai/mistralai";
-import {RecursiveCharacterTextSplitter} from '@langchain/textsplitters';
-import fs from "node:fs";
-import path from "node:path";
+import { createClient } from "@supabase/supabase-js";
 import dotenv from 'dotenv';
-import { createClient } from '@supabase/supabase-js'
 dotenv.config();
 
- 
-const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_API_KEY)
-
-const dir = path.join('/home/devp-sriram/scrimba/mistral-ai/rag/','data.txt') 
-
-// const dir ='performance or creating an intimidating, hostile, humiliating, or offensive working\n' +
-//   'environment.'
 
 
 const mistral = new Mistral({
   apiKey:process.env.MISTRAL_API_KEY_3,
 });
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_API_KEY);
+
+// 1. Getting the user input
+const input = "December 25th is on a Sunday, do I get any extra time off to account for that?";
+
+// 2. Creating an embedding of the input
+const embedding = await createEmbedding(input);
+// 3. Retrieving similar embeddings / text chunks (aka "context")
+const context = await retrieveMatches(embedding);
+console.log(context);
+// 4. Combining the input and the context in a prompt 
+// and using the chat API to generate a response 
+// const response = await generateChatResponse(context, input);
 
 
-async function run() {
-  const result = await mistral.chat.complete({
-    model: "mistral-small-latest",
-    messages: [
-      {
-        content:
-          "Who is the best French painter? Answer in one short sentence.",
-        role: "user",
-      },
-      ],
+async function createEmbedding(input) {
+  const embeddingResponse = await mistral.embeddings.create({
+      model: 'mistral-embed',
+      input: [input]
   });
-
-  // Handle the result
-  console.log(result);
+  return embeddingResponse.data[0].embedding;
 }
 
-async function splitDoc(dir){
-  const data = fs.readFileSync(dir, 'utf8');
-
-  const spliter = new RecursiveCharacterTextSplitter({
-    chunkSize :60,
-    chunkOverlap :20,
-  })
-
-    const output = await spliter.createDocuments([data]);
-    const textArr = output.map(chunk => chunk.pageContent);
-    return textArr;
-}
-
-{/*
-const exampleChunk = ['hour days.  Ordinarily, work hours are from 9:00 a.m. ‐ 5:00 p.m., Monday through Friday,\n' +
-    'including one hour (unpaid) for lunch.  Employees may request the opportunity to vary their'];
-// console.log(await splitDoc());
-//
-  */}
-
-
-
-const contentArr = await splitDoc(dir);
-
-async function createEmberddings(input){
-    
-    const embedCode = await mistral.embeddings.create({
-          inputs: input,
-          model: "mistral-embed",
+async function retrieveMatches(embedding) {
+  const { data } = await supabase.rpc('match_handbook_docs', {
+        query_embedding: embedding,
+        match_threshold: 0.78,
+        match_count: 3
     });
-    const data = input.map((chunck,i)=>{
-    return {
-      chunck : chunck,
-      embeddings : embedCode.data[i].embedding
-    }
-  });
-  return data
+  return data[0].content;
 }
 
-const data = await createEmberddings(contentArr);
-// console.log(data);
-try{
-await supabase.from('handbook_docs').insert(data);
-console.log('success');
-}catch(err){
-  console.log(err)
+
+async function generateChatResponse(context, query) {
+
 }
-//console.log(await embedArr('sajfbauwofbajdf'));
-//console.log(await splitDoc(dir));
 
