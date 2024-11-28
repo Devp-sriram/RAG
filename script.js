@@ -3,13 +3,23 @@ import {RecursiveCharacterTextSplitter} from '@langchain/textsplitters';
 import fs from "node:fs";
 import path from "node:path";
 import dotenv from 'dotenv';
-dotenv.config({ path: `.env.${process.env.NODE_ENV}` });
+import { createClient } from '@supabase/supabase-js'
+dotenv.config();
 
+ 
+const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_API_KEY)
 
 const dir = path.join('/home/devp-sriram/scrimba/mistral-ai/rag/','data.txt') 
+
+// const dir ='performance or creating an intimidating, hostile, humiliating, or offensive working\n' +
+//   'environment.'
+
+
 const mistral = new Mistral({
-  apiKey: '',
+  apiKey:process.env.MISTRAL_API_KEY_3,
 });
+
+
 async function run() {
   const result = await mistral.chat.complete({
     model: "mistral-small-latest",
@@ -19,7 +29,7 @@ async function run() {
           "Who is the best French painter? Answer in one short sentence.",
         role: "user",
       },
-    ],
+      ],
   });
 
   // Handle the result
@@ -30,8 +40,8 @@ async function splitDoc(dir){
   const data = fs.readFileSync(dir, 'utf8');
 
   const spliter = new RecursiveCharacterTextSplitter({
-    chunkSize :150,
-    chunkOverlap : 30,
+    chunkSize :60,
+    chunkOverlap :20,
   })
 
     const output = await spliter.createDocuments([data]);
@@ -44,26 +54,35 @@ const exampleChunk = ['hour days.  Ordinarily, work hours are from 9:00 a.m. ‐
     'including one hour (unpaid) for lunch.  Employees may request the opportunity to vary their'];
 // console.log(await splitDoc());
 //
- 
-const result = await mistral.embeddings.create({
-    inputs: exampleChunk,
-    model: "mistral-embed",
-  });
+  */}
 
-const embedCode = result.data[0]
-console.log(embedCode); */}
 
-async function createEmberddings(dir){
-  const contentArr = splitDoc(dir);
-  contentArr.map(async (content) => {
-    return [{
-      content : content,
-      embedding : await mistral.embeddings.create({
-        inputs : [content],
-        model : 'mistral-embed',
-      })
-    }]
+
+const contentArr = await splitDoc(dir);
+
+async function createEmberddings(input){
+    
+    const embedCode = await mistral.embeddings.create({
+          inputs: input,
+          model: "mistral-embed",
+    });
+    const data = input.map((chunck,i)=>{
+    return {
+      chunck : chunck,
+      embeddings : embedCode.data[i].embedding
+    }
   });
+  return data
 }
 
-console.table(createEmberddings(dir))
+const data = await createEmberddings(contentArr);
+// console.log(data);
+try{
+await supabase.from('handbook_docs').insert(data);
+console.log('success');
+}catch(err){
+  console.log(err)
+}
+//console.log(await embedArr('sajfbauwofbajdf'));
+//console.log(await splitDoc(dir));
+
